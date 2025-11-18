@@ -25,13 +25,13 @@
  * 这是一个可配置点，用于限制最大速度，增加安全性。
  */
  //焦仁川：这里有没有可能让speed直接匹配物理速度？
-const int MAX_MOTOR_SPEED = 255;
+constexpr int MAX_MOTOR_SPEED = 255;
 
 /**
  * @brief 定义电机的最小启动PWM速度值。
  * 小于此值电机可能因摩擦力无法启动。 (可扩展功能)
  */
-const int MIN_MOTOR_SPEED = 80;
+constexpr int MIN_MOTOR_SPEED = 80;
 
 
 // --- 1. 初始化 ---

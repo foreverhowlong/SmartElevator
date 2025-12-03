@@ -42,7 +42,3 @@ bool isTopLimitPressed() {
     // 如果你想测试"到顶停止"的逻辑，把这里改成 true 再烧录一次
     return false;
 }
-
-bool isBottomLimitPressed() {
-    return false;
-}

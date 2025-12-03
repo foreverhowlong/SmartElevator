@@ -50,3 +50,5 @@ src/secrets.h
 *.hex
 *.map
 ```
+6.备份文件
+*.bk

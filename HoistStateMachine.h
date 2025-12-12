@@ -2,6 +2,7 @@
 #define HOIST_STATE_MACHINE_H_
 #include "Config.h"
 #include "hardware_controller.h" // 引入硬件接口
+#include "MaintenanceManager.h"  // 引入维护管理器
 #include <Arduino.h>
 
 // 注意：这里我们不 include blynk_manager.h，避免循环引用。
@@ -15,6 +16,9 @@ private:
     long _targetPositionMs;
     unsigned long _lastUpdateTimestamp;
     unsigned long _runStartTime; // 记录动作开始时间，用于 AI 统计
+    bool _isFullRunMeasuring;    // 标记是否为“全程运行”（从底到顶），只有这种情况才记录数据
+    
+    MaintenanceManager* _maintenanceMgr = nullptr; // 维护管理器指针
 
     // --- 硬件控制封装 (现在调用 HAL 接口) ---
     
@@ -36,9 +40,14 @@ private:
     }
 
 public:
+    void bindMaintenanceManager(MaintenanceManager* mgr) {
+        _maintenanceMgr = mgr;
+    }
+
     void begin() {
         _currentState = STATE_POS_UNKNOWN;
         _currentPositionMs = -1;
+        _isFullRunMeasuring = false;
         _lastUpdateTimestamp = millis();
         motorStopWrapper();
     }
@@ -50,13 +59,17 @@ public:
 
         // 1. 全局安全检查：撞顶保护
         // 只有在非下降状态下检测到撞顶，才认为是需要强制停止的紧急情况。
-        // 下降时如果撞顶，可能是还没完全离开开关，不应视为紧急停止。
         if (checkTopSensor() && _currentState != STATE_MOVING_DOWN) {
             // 除了 IDLE 和 CALIBRATING (这两种状态下撞顶是正常情况或预期校准完成)
             if (_currentState != STATE_IDLE && _currentState != STATE_CALIBRATING) {
                 motorStopWrapper();
                 _currentState = STATE_ERROR; // 标记为错误状态，需要人工干预
-                Serial.println("⚠️ Limit Hit! Force Stop (Unexpected).");
+                
+                static unsigned long lastErrorPrintTime = 0;
+                if (millis() - lastErrorPrintTime > 1000) {
+                    Serial.println("⚠️ Limit Hit! Force Stop (Unexpected).");
+                    lastErrorPrintTime = millis();
+                }
             }
             _currentPositionMs = 0; // 只要撞顶，物理位置就是0
         }
@@ -68,11 +81,34 @@ public:
                 break;
 
             case STATE_CALIBRATING:
+                // 维护检查：短期异常 (Acute Check) - 仅限全程运行
+                if (_maintenanceMgr && _isFullRunMeasuring) {
+                   long runDuration = now - _runStartTime;
+                   if (_maintenanceMgr->checkAcuteAnomaly(runDuration)) {
+                       motorStopWrapper();
+                       _currentState = STATE_ERROR;
+                       Serial.printf("⚠️ Acute Anomaly! Duration: %ld ms. Force Stop.\n", runDuration);
+                       return;
+                   }
+                }
+
                 if (checkTopSensor()) {
                     motorStopWrapper();
+                    
+                    // 记录运行数据 (仅在全程且成功时)
+                    if (_maintenanceMgr && _isFullRunMeasuring) {
+                        long duration = now - _runStartTime;
+                        _maintenanceMgr->recordRun(duration);
+                        Serial.printf("📊 Maintenance: Full Run recorded (%ld ms)\n", duration);
+                    } else if (_isFullRunMeasuring) {
+                        // 理论上不会进这里，除非逻辑有误
+                    } else {
+                        Serial.println("ℹ️ Calibration Done (Partial run, no stats recorded).");
+                    }
+
+                    _isFullRunMeasuring = false; // 结束测量
                     _currentState = STATE_IDLE;
                     _currentPositionMs = 0;
-                    Serial.println("✅ Calibration Done.");
                 } else {
                     motorUpWrapper();
                 }
@@ -98,6 +134,17 @@ public:
                 break;
 
             case STATE_MOVING_UP:
+                // 维护检查：短期异常 (Acute Check) - 仅限全程运行
+                if (_maintenanceMgr && _isFullRunMeasuring) {
+                   long runDuration = now - _runStartTime;
+                   if (_maintenanceMgr->checkAcuteAnomaly(runDuration)) {
+                       motorStopWrapper();
+                       _currentState = STATE_ERROR;
+                       Serial.printf("⚠️ Acute Anomaly! Duration: %ld ms. Force Stop.\n", runDuration);
+                       return;
+                   }
+                }
+
                 // 到了目标？
                 if (_currentPositionMs <= _targetPositionMs) {
                     motorStopWrapper();
@@ -123,7 +170,17 @@ public:
     void commandGoTop() {
         _targetPositionMs = 0;
         _currentState = STATE_CALIBRATING; 
-        Serial.println("CMD: Calibrating (Go Top)...");
+        
+        // 逻辑修正：只在从底部出发时，才开始计时统计
+        // 判断当前是否在底部 (允许 500ms 误差)
+        if (_currentPositionMs >= (TIME_TO_BOTTOM_MS - 500)) {
+            _isFullRunMeasuring = true;
+            _runStartTime = millis(); 
+            Serial.println("CMD: Go Top (FULL RUN - Stats Enabled)");
+        } else {
+            _isFullRunMeasuring = false;
+            Serial.println("CMD: Go Top (Partial Run - Stats Ignored)");
+        }
     }
 
     void commandGoMiddle() {
@@ -142,10 +199,17 @@ public:
         _currentState = STATE_ERROR;
         motorStopWrapper();
     }
+    
+    SystemState getState() {
+        return _currentState;
+    }
 
     // --- 辅助方法 ---
 
     void decideDirection() {
+        // 普通移动指令不参与全程统计
+        _isFullRunMeasuring = false;
+
         long diff = _targetPositionMs - _currentPositionMs;
         if (abs(diff) < 200) {
             _currentState = STATE_IDLE;

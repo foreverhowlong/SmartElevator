@@ -10,10 +10,14 @@
 #include "secrets.h"
 #include <WiFi.h>
 #include <BlynkSimpleEsp32.h>
-#include "HoistStateMachine.h" // 需要引用状态机定义
+#include "HoistStateMachine.h" 
+#include "SchedulerManager.h"
+#include "MaintenanceManager.h"
 
 // 引用主程序中定义的全局对象
 extern HoistStateMachine hoist; 
+extern SchedulerManager scheduler;
+extern MaintenanceManager maintenance;
 
 // 定义 Blynk 的打印输出为串口
 #define BLYNK_PRINT Serial
@@ -38,11 +42,24 @@ void runBlynk() {
 // ------------------------------------
 
 // V0: 紧急停止 (最高优先级)
-BLYNK_WRITE(V0) {
+BLYNK_WRITE(V1) {
     int val = param.asInt();
     if (val == 1) {
         Serial.println("[Blynk] 🚨 EMERGENCY STOP Triggered!");
         hoist.emergencyStop();
+    }
+}
+
+// V20: 楼层选择 (综合控制)
+// 0=无, 1=底, 2=中, 3=顶
+BLYNK_WRITE(V20) {
+    int floor = param.asInt();
+    Serial.printf("[Blynk] Floor Select: %d\n", floor);
+    switch (floor) {
+        case 1: hoist.commandGoBottom(); break;
+        case 2: hoist.commandGoMiddle(); break;
+        case 3: hoist.commandGoTop(); break;
+        default: break;
     }
 }
 
@@ -70,11 +87,16 @@ BLYNK_WRITE(V23) {
     }
 }
 
-// V10: 定时任务 (MVP 暂未实现复杂逻辑，仅接收)
+// V10: 定时上升 (Time Input widget sends seconds)
 BLYNK_WRITE(V10) {
-    // Time Input widget 发送的是秒数
     long startTimeInSecs = param[0].asLong();
-    Serial.printf("[Blynk] Timer update: %ld s\n", startTimeInSecs);
+    scheduler.setScheduleUp(startTimeInSecs);
+}
+
+// V11: 定时下降 (Time Input widget sends seconds)
+BLYNK_WRITE(V11) {
+    long startTimeInSecs = param[0].asLong();
+    scheduler.setScheduleDown(startTimeInSecs);
 }
 
 // ------------------------------------
@@ -86,9 +108,10 @@ void updateAppStatus(const char* statusStr) {
     Blynk.virtualWrite(V3, statusStr);
 }
 
-// 辅助函数：更新上次运行耗时 (AI 数据)
-void updateAppLastRunTime(long durationMs) {
-    Blynk.virtualWrite(V5, (int)durationMs);
+// 辅助函数：更新维护数据 (AI 数据)
+void updateAppMaintenanceData(long lastDurationMs, double slope) {
+    Blynk.virtualWrite(V0, (int)lastDurationMs); // 单次耗时
+    Blynk.virtualWrite(V4, slope);              // 老化斜率
 }
 
 #endif

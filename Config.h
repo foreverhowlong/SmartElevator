@@ -32,9 +32,7 @@ const unsigned long MAX_SAFE_POSITION_MS = 10000;
 const int PWM_SPEED_UP   = 200; // 0-255，上升通常需要更大扭矩
 const int PWM_SPEED_DOWN = 150; // 下降利用重力，速度可以小一点
 
-// ==========================
 // 4. 系统状态枚举
-// ==========================
 enum SystemState {
     STATE_IDLE,             // 待机
     STATE_CALIBRATING,      // 正在归零（向上找开关）
@@ -43,5 +41,12 @@ enum SystemState {
     STATE_ERROR,            // 故障/急停
     STATE_POS_UNKNOWN       // 位置未知（刚开机，必须先归零）
 };
+
+// ==========================
+// 5. 维护与安全参数
+// ==========================
+// 维护基准时间 (平均上升时间) - 用于短期异常检测
+// 暂时设为 TIME_TO_BOTTOM_MS (最坏情况), 实际应更短
+const unsigned long MAINTENANCE_BASELINE_MS = TIME_TO_BOTTOM_MS;
 
 #endif

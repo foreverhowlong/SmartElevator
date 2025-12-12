@@ -119,6 +119,47 @@ public:
         int lastIdx = (historyIndex - 1 + MAX_HISTORY_SIZE) % MAX_HISTORY_SIZE;
         return history[lastIdx];
     }
+
+    // --- Demo / Presentation Features ---
+
+    /**
+     * @brief Generates a synthetic history dataset showing a "deteriorating" trend.
+     * Useful for demonstrating the AI/Slope detection without waiting for 10 physical runs.
+     */
+    void generateDemoData() {
+        // Base: 8000ms, increasing by ~50ms each run with some random noise.
+        long base = BASELINE_DURATION; 
+        
+        // Reset history
+        historyCount = 0;
+        historyIndex = 0;
+
+        Serial.println("[Maintenance] Generating Demo Data (Aging Trend)...");
+        for (int i = 0; i < MAX_HISTORY_SIZE; i++) {
+            // Trend: i * 80ms
+            // Noise: random(-20, 20)
+            long val = base + (i * random(60,80)) + random(-20, 21);
+            recordRun(val);
+            // Small delay not needed for logic, but helps if debugging print
+        }
+        Serial.println("[Maintenance] Demo Data Generated.");
+    }
+    
+    /**
+     * @brief Access history items safely for visualization replay
+     */
+    int getHistoryCount() { return historyCount; }
+    
+    long getHistoryItem(int i) {
+        if (i < 0 || i >= historyCount) return 0;
+        // Logical index 0 is the OLDEST.
+        // Internal buffer logic:
+        // If buffer not full: 0 is oldest.
+        // If buffer full: historyIndex is oldest.
+        int startIdx = (historyCount < MAX_HISTORY_SIZE) ? 0 : historyIndex;
+        int actualIdx = (startIdx + i) % MAX_HISTORY_SIZE;
+        return history[actualIdx];
+    }
 };
 
 #endif

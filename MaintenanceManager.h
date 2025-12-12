@@ -121,44 +121,59 @@ public:
     }
 
     // --- Demo / Presentation Features ---
+    
+    // Temporary buffer to hold the pre-generated demo scenario
+    long demoBuffer[MAX_HISTORY_SIZE];
 
     /**
-     * @brief Generates a synthetic history dataset showing a "deteriorating" trend.
-     * Useful for demonstrating the AI/Slope detection without waiting for 10 physical runs.
+     * @brief Prepares the demo scenario but DOES NOT write to main history yet.
+     * This allows us to "inject" data one by one during replay to simulate real-time updates.
      */
     void generateDemoData() {
-        // Base: 8000ms, increasing by ~50ms each run with some random noise.
+        // Base: 8000ms, increasing by ~80ms each run with noise.
         long base = BASELINE_DURATION; 
         
-        // Reset history
-        historyCount = 0;
-        historyIndex = 0;
-
-        Serial.println("[Maintenance] Generating Demo Data (Aging Trend)...");
+        Serial.println("[Maintenance] Generating Demo Scenario (in buffer)...");
         for (int i = 0; i < MAX_HISTORY_SIZE; i++) {
             // Trend: i * 80ms
             // Noise: random(-20, 20)
-            long val = base + (i * random(60,80)) + random(-20, 21);
-            recordRun(val);
-            // Small delay not needed for logic, but helps if debugging print
+            demoBuffer[i] = base + (i * 80) + random(-20, 21);
         }
-        Serial.println("[Maintenance] Demo Data Generated.");
+        Serial.println("[Maintenance] Demo Scenario Ready. Waiting for replay injection.");
     }
     
+    /**
+     * @brief Clears the real history. Call this before starting demo replay.
+     */
+    void resetHistory() {
+        historyCount = 0;
+        historyIndex = 0;
+        // Optional: clear NVS if you want persistence to be wiped too
+        // prefs.putInt("h_idx", 0); ...
+    }
+
+    /**
+     * @brief Injects a single point from the demo buffer into the real history.
+     * @param index The index from the demo buffer [0..9]
+     * @return The value that was injected
+     */
+    long injectDemoData(int index) {
+        if (index < 0 || index >= MAX_HISTORY_SIZE) return 0;
+        long val = demoBuffer[index];
+        recordRun(val); // Actually write to history and NVS
+        return val;
+    }
+
     /**
      * @brief Access history items safely for visualization replay
      */
     int getHistoryCount() { return historyCount; }
     
+    // getHistoryItem is no longer needed for Scheme B because we use the return value of injectDemoData
+    // but we keep it compatible if needed.
     long getHistoryItem(int i) {
-        if (i < 0 || i >= historyCount) return 0;
-        // Logical index 0 is the OLDEST.
-        // Internal buffer logic:
-        // If buffer not full: 0 is oldest.
-        // If buffer full: historyIndex is oldest.
-        int startIdx = (historyCount < MAX_HISTORY_SIZE) ? 0 : historyIndex;
-        int actualIdx = (startIdx + i) % MAX_HISTORY_SIZE;
-        return history[actualIdx];
+        // Legacy support if needed, or mapping logic
+        return 0; 
     }
 };
 

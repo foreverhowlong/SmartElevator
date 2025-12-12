@@ -87,18 +87,25 @@ void loop() {
     static int demoPlayIndex = 0;
     static unsigned long lastDemoStep = 0;
 
-    // A. Demo 数据回放逻辑 (每 500ms 推送一个历史点，绘制图表)
-    if (isDemoPlaying && millis() - lastDemoStep > 1000) {
-        if (demoPlayIndex < maintenance.getHistoryCount()) {
-            long val = maintenance.getHistoryItem(demoPlayIndex);
+    // A. Demo 数据回放逻辑 (每 500ms 注入并推送一个历史点)
+    if (isDemoPlaying && millis() - lastDemoStep > 500) {
+        // 使用硬编码 10 或从 MaintenanceManager 获取常量 (MAX_HISTORY_SIZE)
+        if (demoPlayIndex < 10) { 
+            // 核心修改：这里不再是“读”，而是“注入” (Inject)
+            // 这一步会真正把数据写入 history 数组，从而改变 calculateSlope 的结果
+            long val = maintenance.injectDemoData(demoPlayIndex);
             
-            // 推送单次耗时 (绘制波形)
+            // 推送单次耗时
             Blynk.virtualWrite(V5, (int)val);
-            // 同时也稍微推一下斜率 (为了让斜率图也动起来，虽然斜率是基于整体的)
-            // 这里我们直接推送当前的真实计算斜率，因为 generateDemoData 已经更新了数组，斜率会很高
+            
+            // 推送斜率
+            // 因为刚刚 inject 了一个新点，现在的 slope 是基于当前已有的点 (1个, 2个...) 计算出来的
+            // 这样就实现了斜率的“渐进式变化”
             Blynk.virtualWrite(V4, maintenance.calculateSlope());
 
-            Serial.printf("[Demo] Replaying history [%d]: %ld ms\n", demoPlayIndex, val);
+            Serial.printf("[Demo] Injecting step [%d]: %ld ms. New Slope: %.2f\n", 
+                          demoPlayIndex, val, maintenance.calculateSlope());
+            
             demoPlayIndex++;
             lastDemoStep = millis();
         } else {
@@ -146,8 +153,12 @@ void loop() {
             case 'p': setMockTopLimit(true); break;  // 按下开关
             case 'r': setMockTopLimit(false); break; // 松开开关
             case 'D': // [New] Demo Mode
-                Serial.println(">>> Starting Demo Mode: Generating Data...");
+                Serial.println(">>> Starting Demo Mode (Scheme B: Progressive Slope)...");
+                // 1. 清空当前真实历史，为演示腾出舞台
+                maintenance.resetHistory();
+                // 2. 在后台生成“剧本”，但不写入历史
                 maintenance.generateDemoData();
+                // 3. 开始回放，由 Loop 负责一步步注入数据
                 isDemoPlaying = true;
                 demoPlayIndex = 0;
                 break;

@@ -49,11 +49,14 @@ public:
         _lastUpdateTimestamp = now;
 
         // 1. 全局安全检查：撞顶保护
-        if (checkTopSensor()) {
+        // 只有在非下降状态下检测到撞顶，才认为是需要强制停止的紧急情况。
+        // 下降时如果撞顶，可能是还没完全离开开关，不应视为紧急停止。
+        if (checkTopSensor() && _currentState != STATE_MOVING_DOWN) {
+            // 除了 IDLE 和 CALIBRATING (这两种状态下撞顶是正常情况或预期校准完成)
             if (_currentState != STATE_IDLE && _currentState != STATE_CALIBRATING) {
                 motorStopWrapper();
-                _currentState = STATE_IDLE;
-                Serial.println("⚠️ Limit Hit! Force Stop.");
+                _currentState = STATE_ERROR; // 标记为错误状态，需要人工干预
+                Serial.println("⚠️ Limit Hit! Force Stop (Unexpected).");
             }
             _currentPositionMs = 0; // 只要撞顶，物理位置就是0
         }

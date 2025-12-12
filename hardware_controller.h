@@ -47,23 +47,10 @@ void motorGoDown(int pwm_val = MAX_MOTOR_SPEED);
  */
 void stopMotor();
 
-// --- 3. 传感器读取 ---
-
-/**
- * @brief 顶部限位状态
- * @return true = 撞到了顶部 (危险/校准点)
- */
+// --- 传感器读取 ---
 bool isTopLimitPressed();
 
-// [已删除] isBottomLimitPressed()
-// 原因：2025-12-03 变更：移除底部物理开关，改为基于时间的软限位。
+// --- 调试用 ---
+void setMockTopLimit(bool pressed); // 手动设置模拟限位开关的状态
 
-// --- 4. 遥测与 AI 数据接口 (预留) ---
-
-// [暂时移除] 2025-12-03: MVP阶段不需要电流读取，保持接口简洁。
-// ⚠️ 重要硬件提醒：
-// 虽然这里代码注释掉了，但在硬件接线时，请务必将 BTS7960 的 R_IS 和 L_IS 引脚
-// 连接到 ESP32 的 ADC 引脚（并预留分压电阻），以免未来升级 AI 功能时需要重新焊接！
-// int getMotorCurrentRaw();
-
-#endif // HARDWARE_CONTROLLER_H
+#endif

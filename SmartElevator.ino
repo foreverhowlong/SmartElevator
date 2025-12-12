@@ -36,9 +36,10 @@ void setup() {
     hoist.begin();
     Serial.println(" - Logic Layer: OK");
     
-    // D. 完成
-    Serial.println(">>> System Ready. Waiting for commands.");
-    updateAppStatus("✅ System Ready (Need Calib)");
+    // D. 自动开始归零
+    Serial.println(">>> System Ready. Auto-Calibrating...");
+    updateAppStatus("🔄 Auto-Calibrating...");
+    hoist.commandGoTop(); // <--- 加上这一行
 }
 
 // ------------------------------------------------
@@ -53,11 +54,29 @@ void loop() {
 
     // 3. 串口调试输出 (每500ms打印一次)
     static unsigned long lastLog = 0;
-    if (millis() - lastLog > 500) {
+    if (millis() - lastLog > 1000) {
         // 打印当前状态名和估算位置
-        Serial.printf("[State: %s] Pos: %ld ms\n", 
+        Serial.printf("[State: %s] Pos: %ld ms | Limit: %s\n", 
                       hoist.getStateName(), 
-                      hoist.getCurrentPosition());
+                      hoist.getCurrentPosition(),
+                      isTopLimitPressed() ? "HIT" : "OPEN");
         lastLog = millis();
+    }
+
+    // 4. 串口指令控制 (调试神器)
+    if (Serial.available()) {
+        char cmd = Serial.read();
+        // 忽略换行符
+        if (cmd == '\n' || cmd == '\r') return;
+
+        switch (cmd) {
+            case 't': hoist.commandGoTop(); break;
+            case 'm': hoist.commandGoMiddle(); break;
+            case 'b': hoist.commandGoBottom(); break;
+            case 's': hoist.emergencyStop(); break;
+            case 'p': setMockTopLimit(true); break;  // 按下开关
+            case 'r': setMockTopLimit(false); break; // 松开开关
+            default: Serial.printf("Unknown command: %c\n", cmd); break;
+        }
     }
 }

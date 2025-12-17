@@ -1,62 +1,95 @@
 /**
-* @file hardware_controller.cpp
- * @brief [MOCK 版本] 硬件抽象层的模拟实现
- * * @details
- * 因为硬件队友还没写完驱动，我们这里用 Serial.print 来模拟硬件行为。
- * 这让逻辑开发人员可以独立测试业务逻辑。
+ * @file hardware_controller.cpp
+ * @brief 硬件抽象层的真实实现 (Real Hardware Implementation)
+ * @details 集成了 BTS7960 电机驱动与 HC-SR04 超声波限位逻辑
  */
 
 #include "hardware_controller.h"
+#include "Config.h"
 
 // --- 1. 初始化实现 ---
 
 void setupHardware() {
-    // 假装初始化了引脚
-    Serial.println("[Mock硬件] 硬件初始化完成 (虚拟模式)");
+    pinMode(PIN_MOTOR_RPWM, OUTPUT);
+    pinMode(PIN_MOTOR_LPWM, OUTPUT);
+    digitalWrite(PIN_MOTOR_RPWM, LOW);
+    digitalWrite(PIN_MOTOR_LPWM, LOW);
+
+    pinMode(PIN_ULTRASONIC_TRIG, OUTPUT);
+    pinMode(PIN_ULTRASONIC_ECHO, INPUT);
+    digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
+
+    Serial.println("[硬件] 硬件初始化完成 (真实驱动模式)");
 }
 
-// --- 2. 电机控制实现 (只打印，不转动) ---
-
-static unsigned long lastPrintTime = 0;
+// --- 2. 电机控制实现 ---
 
 void motorGoUp(int speed) {
-    // 限制打印频率，避免刷屏
-    if (millis() - lastPrintTime > 1000) {
-        Serial.printf("[Mock硬件] 电机正在上升... 速度: %d\n", speed);
-        lastPrintTime = millis();
-    }
+    stopMotor(); // 换向/启动前先确保无冲突
+
+    // 用户代码定义: motorGoUp -> RPWM=HIGH (Up), LPWM=LOW
+    // 使用 analogWrite 支持调速
+    // 如果 speed 为 255，效果等同于 digitalWrite(HIGH)
+    digitalWrite(PIN_MOTOR_LPWM, LOW);
+    analogWrite(PIN_MOTOR_RPWM, speed); 
+    
+    // Serial.printf("[硬件] 电机上升 (Speed: %d)\n", speed);
 }
 
 void motorGoDown(int speed) {
-    // 限制打印频率，避免刷屏
-    if (millis() - lastPrintTime > 1000) {
-        Serial.printf("[Mock硬件] 电机正在下降... 速度: %d\n", speed);
-        lastPrintTime = millis();
-    }
+    stopMotor();
+
+    // 用户代码定义: motorGoDown -> RPWM=LOW, LPWM=HIGH (Down)
+    digitalWrite(PIN_MOTOR_RPWM, LOW);
+    analogWrite(PIN_MOTOR_LPWM, speed);
+    
+    // Serial.printf("[硬件] 电机下降 (Speed: %d)\n", speed);
 }
 
 void stopMotor() {
-    // 假装电机停了
-    if (millis() - lastPrintTime > 1000) {
-        Serial.println("[Mock硬件] 电机已停止");
-        lastPrintTime = millis();
-    }
-    
+    // 强制拉低两端
+    digitalWrite(PIN_MOTOR_RPWM, LOW);
+    digitalWrite(PIN_MOTOR_LPWM, LOW);
+    // 此外对于 PWM 引脚，最好显式 write 0 以关闭 PWM 计时器
+    analogWrite(PIN_MOTOR_RPWM, 0);
+    analogWrite(PIN_MOTOR_LPWM, 0);
 }
 
-// --- 3. 传感器读取实现 (手动控制返回值) ---
+// --- 3. 传感器读取实现 ---
 
-static bool _mockLimitState = false; // 内部变量，记录模拟开关状态
-
+// 移除 Mock 相关的变量和函数
 void setMockTopLimit(bool pressed) {
-    _mockLimitState = pressed;
-    if (pressed) {
-        Serial.println("[Mock硬件] 👆 模拟限位开关: 已按下 (PRESSED)");
-    } else {
-        Serial.println("[Mock硬件] 👇 模拟限位开关: 已松开 (RELEASED)");
-    }
+    // 真实硬件模式下，此函数无效
 }
 
 bool isTopLimitPressed() {
-    return _mockLimitState;
+    // 发送触发信号
+    digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
+    delayMicroseconds(2);
+    digitalWrite(PIN_ULTRASONIC_TRIG, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
+
+    // 读取回声信号 (超时 30ms, 约 5米范围)
+    long duration = pulseIn(PIN_ULTRASONIC_ECHO, HIGH, 30000); 
+
+    if (duration == 0) {
+        // 超时或读取失败，通常意味着距离很远（没挡住），或者传感器故障
+        // 保守起见，如果没有回波，假设没有到达顶部（或者视为故障停止？）
+        // 这里暂时假设未到达
+        return false; 
+    }
+
+    // 计算距离（cm）
+    float distance = duration * 0.034 / 2;
+
+
+    // 
+    // 正确逻辑: 如果距离 <= 给定距离，说明到达顶部限位，应返回 true
+    if (distance > 0 && distance <= SENSOR_DISTANCE_LIMIT) {
+        // Serial.printf("[硬件] 顶部限位触发! 距离: %.2f cm\n", distance);
+        return true; 
+    }
+    
+    return false;
 }

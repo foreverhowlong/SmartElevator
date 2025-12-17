@@ -5,13 +5,14 @@
 // 1. 引脚定义 (Pin Definitions)
 // ==========================
 // BTS7960 Motor Driver
-#define PIN_MOTOR_R_PWM    16  // 右旋 PWM (下降)
-#define PIN_MOTOR_L_PWM    17  // 左旋 PWM (上升)
-#define PIN_MOTOR_R_EN     18  // 右旋使能 (可用于急停)
-#define PIN_MOTOR_L_EN     19  // 左旋使能
+// 注意：根据最新硬件驱动，RPWM负责上升，LPWM负责下降 (或者反之，取决于接线)
+// 用户代码: RPWM=18(Up), LPWM=19(Down)
+#define PIN_MOTOR_RPWM    18  // 对应用户代码的 RPWM_PIN (Up)
+#define PIN_MOTOR_LPWM    19  // 对应用户代码的 LPWM_PIN (Down)
 
-// Sensors
-#define PIN_LIMIT_TOP      21  // 顶部物理限位开关 (常闭/常开需确认)
+// Ultrasonic Sensor (HC-SR04)
+#define PIN_ULTRASONIC_TRIG  27
+#define PIN_ULTRASONIC_ECHO  26
 
 // ==========================
 // 2. 机械参数 (Mechanical Params)
@@ -48,5 +49,6 @@ enum SystemState {
 // 维护基准时间 (平均上升时间) - 用于短期异常检测
 // 暂时设为 TIME_TO_BOTTOM_MS (最坏情况), 实际应更短
 const unsigned long MAINTENANCE_BASELINE_MS = TIME_TO_BOTTOM_MS;
+const double SENSOR_DISTANCE_LIMIT = 45.0;
 
 #endif

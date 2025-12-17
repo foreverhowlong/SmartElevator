@@ -51,4 +51,5 @@ src/secrets.h
 *.map
 ```
 6.备份文件
+*.bkup
 *.bk

@@ -11,7 +11,7 @@
 #define WIFI_PASS "Your_WiFi_Password"
 
 // 2. Blynk 云平台配置
-// 在 Blynk Console -> Device Info 中可以找到
+// 在 Blynk Console -> Device Infdo 中可以找到
 #define BLYNK_TEMPLATE_ID   "TMPLxxxxxx"
 #define BLYNK_TEMPLATE_NAME "Smart Hoist"
 #define BLYNK_AUTH_TOKEN    "Your_Blynk_Token_Here"

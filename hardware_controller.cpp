@@ -24,7 +24,7 @@ void setupHardware() {
 
 // --- 2. 电机控制实现 ---
 
-void motorGoUp(int speed) {
+void motorGoDown(int speed) {
     stopMotor(); // 换向/启动前先确保无冲突
 
     // 用户代码定义: motorGoUp -> RPWM=HIGH (Up), LPWM=LOW
@@ -33,17 +33,17 @@ void motorGoUp(int speed) {
     digitalWrite(PIN_MOTOR_LPWM, LOW);
     analogWrite(PIN_MOTOR_RPWM, speed); 
     
-    // Serial.printf("[硬件] 电机上升 (Speed: %d)\n", speed);
+    // Serial.printf("[硬件] 电机下降 (Speed: %d)\n", speed);
 }
 
-void motorGoDown(int speed) {
+void motorGoUp(int speed) {
     stopMotor();
 
-    // 用户代码定义: motorGoDown -> RPWM=LOW, LPWM=HIGH (Down)
+    // 用户代码定义: motorGoUp -> RPWM=LOW, LPWM=HIGH (Down)
     digitalWrite(PIN_MOTOR_RPWM, LOW);
     analogWrite(PIN_MOTOR_LPWM, speed);
     
-    // Serial.printf("[硬件] 电机下降 (Speed: %d)\n", speed);
+    // Serial.printf("[硬件] 电机上升 (Speed: %d)\n", speed);
 }
 
 void stopMotor() {

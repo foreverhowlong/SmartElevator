@@ -49,6 +49,6 @@ enum SystemState {
 // 维护基准时间 (平均上升时间) - 用于短期异常检测
 // 暂时设为 TIME_TO_BOTTOM_MS (最坏情况), 实际应更短
 const unsigned long MAINTENANCE_BASELINE_MS = TIME_TO_BOTTOM_MS;
-const double SENSOR_DISTANCE_LIMIT = 45.0;
+const double SENSOR_DISTANCE_LIMIT = 42.5;
 
 #endif

@@ -60,8 +60,8 @@ public:
         // 1. 全局安全检查：撞顶保护
         // 只有在非下降状态下检测到撞顶，才认为是需要强制停止的紧急情况。
         if (checkTopSensor() && _currentState != STATE_MOVING_DOWN) {
-            // 除了 IDLE 和 CALIBRATING (这两种状态下撞顶是正常情况或预期校准完成)
-            if (_currentState != STATE_IDLE && _currentState != STATE_CALIBRATING) {
+            // 除了 IDLE(这种状态下撞顶是正常情况)
+            if (_currentState != STATE_IDLE ) {
                 motorStopWrapper();
                 _currentState = STATE_ERROR; // 标记为错误状态，需要人工干预
                 
@@ -81,6 +81,14 @@ public:
                 break;
 
             case STATE_CALIBRATING:
+                // Safety: Calibration Timeout
+                if (now - _runStartTime > MAX_SAFE_POSITION_MS) {
+                     motorStopWrapper();
+                     _currentState = STATE_ERROR;
+                     Serial.println("⚠️ Calibration Timeout! Sensor failure likely. Force Stop.");
+                     return;
+                }
+
                 // 维护检查：短期异常 (Acute Check) - 仅限全程运行
                 if (_maintenanceMgr && _isFullRunMeasuring) {
                    long runDuration = now - _runStartTime;
@@ -115,6 +123,14 @@ public:
                 break;
 
             case STATE_MOVING_DOWN:
+                // Safety: Max Position Limit
+                if (_currentPositionMs >= (long)MAX_SAFE_POSITION_MS) {
+                    motorStopWrapper();
+                    _currentState = STATE_ERROR;
+                    Serial.println("⚠️ Max Safe Position Exceeded! Force Stop.");
+                    return;
+                }
+
                 // 软限位：到了虚拟底部？
                 if (_currentPositionMs >= TIME_TO_BOTTOM_MS) {
                     motorStopWrapper();
@@ -170,12 +186,12 @@ public:
     void commandGoTop() {
         _targetPositionMs = 0;
         _currentState = STATE_CALIBRATING; 
+        _runStartTime = millis(); // Always reset start time for safety timeout check
         
         // 逻辑修正：只在从底部出发时，才开始计时统计
         // 判断当前是否在底部 (允许 500ms 误差)
         if (_currentPositionMs >= (TIME_TO_BOTTOM_MS - 500)) {
             _isFullRunMeasuring = true;
-            _runStartTime = millis(); 
             Serial.println("CMD: Go Top (FULL RUN - Stats Enabled)");
         } else {
             _isFullRunMeasuring = false;

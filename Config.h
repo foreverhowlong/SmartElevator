@@ -20,12 +20,12 @@
 // 这里的单位是“毫秒”，代表电机全速运行的时间
 // 假设从顶到底（2米）需要运行 8秒 (8000ms)
 
-const unsigned long TIME_TO_MIDDLE_MS = 4000; // 顶层 -> 中层 耗时
-const unsigned long TIME_TO_BOTTOM_MS = 8000; // 顶层 -> 底层 (虚拟底部) 耗时
+const unsigned long TIME_TO_MIDDLE_MS = 70*1000; // 顶层 -> 中层 耗时
+const unsigned long TIME_TO_BOTTOM_MS = 150*1000; // 顶层 -> 底层 (虚拟底部) 耗时
 
 // 安全冗余：允许的最大下降时间（防止过卷）
-// 既然绳子有5-6米，设为 10000ms 比较安全，超过这个值软件强制锁死
-const unsigned long MAX_SAFE_POSITION_MS = 10000; 
+// 既然绳子有5-6米，设为 70000ms 比较安全 (比正常行程 60000ms 大)
+const unsigned long MAX_SAFE_POSITION_MS = 160*1000; 
 
 // ==========================
 // 3. 速度控制 (PWM)
@@ -49,6 +49,6 @@ enum SystemState {
 // 维护基准时间 (平均上升时间) - 用于短期异常检测
 // 暂时设为 TIME_TO_BOTTOM_MS (最坏情况), 实际应更短
 const unsigned long MAINTENANCE_BASELINE_MS = TIME_TO_BOTTOM_MS;
-const double SENSOR_DISTANCE_LIMIT = 42.5;
+const double SENSOR_DISTANCE_LIMIT = 50;
 
 #endif

@@ -25,7 +25,8 @@ void setupHardware() {
 // --- 2. 电机控制实现 ---
 
 void motorGoDown(int speed) {
-    stopMotor(); // 换向/启动前先确保无冲突
+    // stopMotor(); // Optimization: Removed redundant stop to prevent PWM jitter in loop
+    // Caller (State Machine) must ensure direction switch safety.
 
     // 用户代码定义: motorGoUp -> RPWM=HIGH (Up), LPWM=LOW
     // 使用 analogWrite 支持调速
@@ -37,7 +38,7 @@ void motorGoDown(int speed) {
 }
 
 void motorGoUp(int speed) {
-    stopMotor();
+    // stopMotor(); // Optimization: Removed redundant stop to prevent PWM jitter in loop
 
     // 用户代码定义: motorGoUp -> RPWM=LOW, LPWM=HIGH (Down)
     digitalWrite(PIN_MOTOR_RPWM, LOW);
@@ -70,8 +71,10 @@ bool isTopLimitPressed() {
     delayMicroseconds(10);
     digitalWrite(PIN_ULTRASONIC_TRIG, LOW);
 
-    // 读取回声信号 (超时 30ms, 约 5米范围)
-    long duration = pulseIn(PIN_ULTRASONIC_ECHO, HIGH, 30000); 
+    // 读取回声信号 
+    // Optimization: Reduced timeout to 6000us (~100cm range). 
+    // Target is 42.5cm, so 100cm is sufficient. 30ms (5m) was too blocking.
+    long duration = pulseIn(PIN_ULTRASONIC_ECHO, HIGH, 6000); 
 
     if (duration == 0) {
         // 超时或读取失败，通常意味着距离很远（没挡住），或者传感器故障
